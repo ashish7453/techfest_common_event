@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numerical Trivia Race</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10192E;
+    --panel:#16223B;
+    --panel-2:#1C2A47;
+    --line:#2A3B5C;
+    --paper:#EAF0F6;
+    --slate:#7C8AA0;
+    --amber:#FFB238;
+    --cyan:#49D3B4;
+    --coral:#FF5D5D;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(255,178,56,0.08), transparent 40%),
+      radial-gradient(circle at 85% 85%, rgba(73,211,180,0.08), transparent 40%);
+    pointer-events:none;
+  }
+  .wrap{width:100%; max-width:920px; padding:28px 20px 60px; position:relative;}
+
+  header.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    padding-bottom:16px; margin-bottom:28px;
+  }
+  header.top h1{
+    font-size:clamp(20px,4vw,28px);
+    margin:0; letter-spacing:0.2px; font-weight:700;
+  }
+  header.top h1 span{color:var(--amber);}
+  header.top .tag{color:var(--slate); font-size:13px; font-family:'JetBrains Mono',monospace;}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---- Entry screen ---- */
+  .entry-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:32px;
+    max-width:440px;
+    margin:40px auto 0;
+  }
+  .entry-card h2{margin-top:0; font-size:19px;}
+  .entry-card p{color:var(--slate); font-size:14px; line-height:1.55;}
+  label{display:block; font-size:13px; color:var(--slate); margin:18px 0 6px;}
+  input[type=text]{
+    width:100%; padding:11px 12px;
+    background:var(--ink); border:1px solid var(--line); border-radius:6px;
+    color:var(--paper); font-family:'JetBrains Mono',monospace; font-size:15px;
+    outline:none;
+  }
+  input[type=text]:focus{border-color:var(--amber);}
+  .btn{
+    appearance:none; border:none; cursor:pointer;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    padding:13px 22px; border-radius:6px;
+    background:var(--amber); color:#1A1204;
+    transition:transform .12s ease, background .12s ease;
+  }
+  .btn:hover{background:#ffc260;}
+  .btn:active{transform:scale(0.97);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn.full{width:100%; margin-top:22px;}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--paper);}
+  .btn.ghost:hover{border-color:var(--amber); background:transparent;}
+  .error-msg{color:var(--coral); font-size:13px; margin-top:10px; min-height:16px;}
+
+  /* ---- Race track progress ---- */
+  .track{
+    position:relative; height:10px; border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--line);
+    margin-bottom:26px; overflow:visible;
+  }
+  .track-fill{
+    height:100%; border-radius:999px;
+    background:linear-gradient(90deg,var(--amber),var(--cyan));
+    width:0%; transition:width .35s ease;
+  }
+  .track-runner{
+    position:absolute; top:50%; transform:translate(-50%,-50%);
+    width:20px; height:20px; border-radius:50%;
+    background:var(--paper); border:3px solid var(--ink);
+    left:0%; transition:left .35s ease;
+  }
+
+  /* ---- Quiz screen ---- */
+  .quiz-grid{display:grid; grid-template-columns:1fr; gap:20px;}
+  @media(min-width:680px){ .quiz-grid{grid-template-columns:1fr 1fr;} }
+
+  .q-panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:24px;
+  }
+  .q-count{font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:13px; letter-spacing:.5px;}
+  .q-text{font-size:clamp(18px,3vw,22px); line-height:1.4; margin:14px 0 6px; font-weight:500;}
+  .q-hint{color:var(--slate); font-size:13px; margin-top:14px;}
+  .wrong-count{margin-top:18px; font-size:13px; color:var(--slate); font-family:'JetBrains Mono',monospace;}
+  .wrong-count b{color:var(--coral);}
+
+  .sheet-panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:18px;
+  }
+  .sheet-panel .label{color:var(--slate); font-size:12px; margin-bottom:10px; font-family:'JetBrains Mono',monospace;}
+  .grid-scroll{overflow-x:auto;}
+  .num-grid{
+    display:grid; grid-template-columns:repeat(10,1fr); gap:6px;
+    min-width:400px;
+  }
+  .cell{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    background:var(--ink); border:1px solid var(--line); border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:clamp(11px,2vw,14px);
+    cursor:pointer; user-select:none; color:var(--paper);
+    transition:background .12s ease, border-color .12s ease, transform .1s ease;
+  }
+  .cell:hover{border-color:var(--amber);}
+  .cell:active{transform:scale(0.92);}
+  .cell.correct{background:rgba(73,211,180,0.18); border-color:var(--cyan); color:var(--cyan);}
+  .cell.wrong{background:rgba(255,93,93,0.22); border-color:var(--coral);}
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-4px);}
+    75%{transform:translateX(4px);}
+  }
+  .cell.shake{animation:shake .25s;}
+
+  /* ---- Finish screen ---- */
+  .finish-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:36px; text-align:center; max-width:480px; margin:30px auto 0;
+  }
+  .finish-card .big-time{
+    font-family:'JetBrains Mono',monospace; font-size:44px; font-weight:700; color:var(--amber);
+    margin:14px 0 4px;
+  }
+  .finish-card p{color:var(--slate); font-size:14px; line-height:1.6;}
+  .finish-actions{display:flex; gap:10px; justify-content:center; margin-top:24px; flex-wrap:wrap;}
+
+  /* ---- Leaderboard ---- */
+  .lb-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:24px; max-width:600px; margin:30px auto 0;
+  }
+  .lb-card h2{margin-top:0; font-size:18px;}
+  table{width:100%; border-collapse:collapse; margin-top:12px;}
+  th{
+    text-align:left; font-size:11px; color:var(--slate); font-weight:500;
+    padding:8px 6px; border-bottom:1px solid var(--line); font-family:'JetBrains Mono',monospace;
+  }
+  td{padding:10px 6px; border-bottom:1px solid var(--line); font-size:14px;}
+  td.rank{font-family:'JetBrains Mono',monospace; color:var(--amber); font-weight:700;}
+  td.time{font-family:'JetBrains Mono',monospace; color:var(--cyan);}
+  .lb-status{color:var(--slate); font-size:13px; margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>Numerical <span>Trivia Race</span></h1>
+    <div class="tag">find the number. beat the clock.</div>
+  </header>
+
+  <!-- ENTRY -->
+  <section id="screen-entry" class="screen active">
+    <div class="entry-card">
+      <h2>Join the race</h2>
+      <p>You'll get a set of questions and a sheet of numbers. Find and tap the correct number for each answer — fastest finisher with no mistakes wins.</p>
+      <label for="enrollment">Enrollment number</label>
+      <input type="text" id="enrollment" placeholder="e.g. 23DCE045" autocomplete="off">
+      <label for="pname">Name</label>
+      <input type="text" id="pname" placeholder="Your full name" autocomplete="off">
+      <button class="btn full" id="startBtn">Start race</button>
+      <div class="error-msg" id="entryError"></div>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="screen-quiz" class="screen">
+    <div class="track">
+      <div class="track-fill" id="trackFill"></div>
+      <div class="track-runner" id="trackRunner"></div>
+    </div>
+    <div class="quiz-grid">
+      <div class="q-panel">
+        <div class="q-count" id="qCount">QUESTION 1 / 10</div>
+        <div class="q-text" id="qText">Loading question…</div>
+        <div class="q-hint">Tap the matching number on the sheet →</div>
+        <div class="wrong-count">Wrong taps: <b id="wrongCount">0</b></div>
+      </div>
+      <div class="sheet-panel">
+        <div class="label">ANSWER SHEET</div>
+        <div class="grid-scroll">
+          <div class="num-grid" id="numGrid"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINISH -->
+  <section id="screen-finish" class="screen">
+    <div class="finish-card">
+      <div class="q-count">RACE COMPLETE</div>
+      <div class="big-time" id="finalTime">00:00</div>
+      <p id="finishMsg">Nice work. Your time has been recorded — check the leaderboard to see where you stand.</p>
+      <div class="finish-actions">
+        <button class="btn" id="viewLbBtn">View leaderboard</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section id="screen-lb" class="screen">
+    <div class="lb-card">
+      <h2>Leaderboard</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Enrollment</th><th>Time</th><th>Wrong</th></tr>
+        </thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+      <div class="lb-status" id="lbStatus"></div>
+      <div class="finish-actions">
+        <button class="btn ghost" id="refreshLbBtn">Refresh</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — replace with your deployed Apps Script Web App URL
+   (Deploy Code.gs as: Execute as "Me", Access "Anyone")
+========================================================= */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwmx99to9wp6kh0sZ7Kp72rU9i4BbwsqDlZ1AVS9DqReWjCe5BmNemVGxtTokxducQKg/exec";
+
+/* =========================================================
+   QUESTIONS — edit freely. Every answer must be an integer
+   from 1–100 (the answer sheet covers that full range).
+========================================================= */
+const QUESTIONS = [
+  { q: "How many bits make one byte?", a: 8 },
+  { q: "How many continents are there on Earth?", a: 7 },
+  { q: "How many sides does a hexagon have?", a: 6 },
+  { q: "How many prime numbers are less than 10?", a: 4 },
+  { q: "What is π (pi), rounded to the nearest whole number?", a: 3 },
+  { q: "2 raised to what power equals 1024?", a: 10 },
+  { q: "How many players from one team are on court in basketball at a time?", a: 5 },
+  { q: "How many pairs of chromosomes do humans have?", a: 23 },
+  { q: "How many degrees are in a right angle?", a: 90 },
+  { q: "What percentage represents 'the whole' of something?", a: 100 }
+];
+
+/* ========================================================= */
+
+let state = {
+  enrollment: "",
+  name: "",
+  startTime: 0,
+  current: 0,
+  wrong: 0
+};
+
+const screens = {
+  entry: document.getElementById('screen-entry'),
+  quiz: document.getElementById('screen-quiz'),
+  finish: document.getElementById('screen-finish'),
+  lb: document.getElementById('screen-lb')
+};
+function showScreen(name){
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+/* ---- build the number grid (1–100, shuffled once) ---- */
+function shuffledRange(n){
+  const arr = Array.from({length:n}, (_,i) => i+1);
+  for (let i = arr.length -1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+const gridNumbers = shuffledRange(100);
+const gridEl = document.getElementById('numGrid');
+gridNumbers.forEach(n => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.textContent = n;
+  cell.dataset.value = n;
+  cell.addEventListener('click', () => handleCellClick(cell));
+  gridEl.appendChild(cell);
+});
+
+function handleCellClick(cell){
+  if (state.current >= QUESTIONS.length) return;
+  const val = parseInt(cell.dataset.value, 10);
+  const correctAnswer = QUESTIONS[state.current].a;
+  if (val === correctAnswer){
+    cell.classList.add('correct');
+    state.current++;
+    if (state.current >= QUESTIONS.length){
+      setTimeout(finishRace, 250);
+    } else {
+      setTimeout(renderQuestion, 220);
+    }
+  } else {
+    cell.classList.add('wrong','shake');
+    state.wrong++;
+    document.getElementById('wrongCount').textContent = state.wrong;
+    setTimeout(() => cell.classList.remove('wrong','shake'), 350);
+  }
+}
+
+function renderQuestion(){
+  document.querySelectorAll('.cell.correct').forEach(c => {}); // keep correct marks visible
+  const idx = state.current;
+  document.getElementById('qCount').textContent = `QUESTION ${idx+1} / ${QUESTIONS.length}`;
+  document.getElementById('qText').textContent = QUESTIONS[idx].q;
+  const pct = Math.round((idx / QUESTIONS.length) * 100);
+  document.getElementById('trackFill').style.width = pct + '%';
+  document.getElementById('trackRunner').style.left = pct + '%';
+}
+
+/* ---- entry / start ---- */
+document.getElementById('startBtn').addEventListener('click', async () => {
+  const enrollment = document.getElementById('enrollment').value.trim();
+  const name = document.getElementById('pname').value.trim();
+  const errEl = document.getElementById('entryError');
+  errEl.textContent = '';
+  if (!enrollment || !name){
+    errEl.textContent = 'Please enter both your enrollment number and name.';
+    return;
+  }
+  state.enrollment = enrollment;
+  state.name = name;
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true; btn.textContent = 'Starting…';
+
+  try {
+    await callBackend('start', { enrollment, name });
+  } catch (e) {
+    // If the backend is unreachable, still let the race run locally
+    // (time will just be tracked client-side as a fallback).
+    console.warn('start call failed, continuing locally', e);
+  }
+
+  state.startTime = Date.now();
+  btn.disabled = false; btn.textContent = 'Start race';
+  showScreen('quiz');
+  renderQuestion();
+});
+
+async function finishRace(){
+  const elapsedMs = Date.now() - state.startTime;
+  document.getElementById('finalTime').textContent = formatTime(elapsedMs);
+  document.getElementById('finishMsg').textContent =
+    `Recorded ${state.wrong} wrong tap${state.wrong === 1 ? '' : 's'}. Check the leaderboard to see your rank.`;
+  showScreen('finish');
+  try {
+    await callBackend('finish', { enrollment: state.enrollment, wrong: state.wrong });
+  } catch (e) {
+    console.warn('finish call failed', e);
+  }
+}
+
+function formatTime(ms){
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60).toString().padStart(2,'0');
+  const s = (totalSec%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+/* ---- backend calls (GET, to avoid CORS preflight issues with Apps Script) ---- */
+async function callBackend(action, params){
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.startsWith('PASTE_')) {
+    throw new Error('Apps Script URL not configured');
+  }
+  const url = new URL(APPS_SCRIPT_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params || {}).forEach(([k,v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+/* ---- leaderboard ---- */
+async function loadLeaderboard(){
+  const statusEl = document.getElementById('lbStatus');
+  const body = document.getElementById('lbBody');
+  statusEl.textContent = 'Loading…';
+  try {
+    const data = await callBackend('leaderboard', {});
+    const rows = data.rows || [];
+    body.innerHTML = '';
+    rows.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.enrollment)}</td><td class="time">${formatTime(r.timeTakenSec*1000)}</td><td>${r.wrong}</td>`;
+      body.appendChild(tr);
+    });
+    statusEl.textContent = rows.length ? '' : 'No finishers yet.';
+  } catch (e) {
+    statusEl.textContent = 'Could not load leaderboard — check the Apps Script URL is configured.';
+  }
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('viewLbBtn').addEventListener('click', () => {
+  showScreen('lb');
+  loadLeaderboard();
+});
+document.getElementById('refreshLbBtn').addEventListener('click', loadLeaderboard);
+</script>
+</body>
+</html>
